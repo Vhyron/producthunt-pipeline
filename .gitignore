@@ -1,0 +1,20 @@
+# secrets
+.env
+
+# airflow runtime
+logs/*
+!logs/.gitkeep
+plugins/*
+!plugins/.gitkeep
+config/*
+!config/.gitkeep
+**/__pycache__/
+*.pyc
+
+# dbt artifacts
+dbt/producthunt/target/
+dbt/producthunt/dbt_packages/
+dbt/producthunt/logs/
+
+# os
+.DS_Store
