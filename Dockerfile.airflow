@@ -1,0 +1,12 @@
+# Extend the official Airflow image with the libraries our tasks need:
+#   - dbt-postgres : runs our SQL transformations
+#   - requests + psycopg2 : the extract module
+# Official Airflow images are multi-arch, so this builds on Mac (arm64),
+FROM apache/airflow:2.10.3-python3.11
+
+# (dbt and psycopg2 are pure-python / have arm64 wheels, so no apt build deps needed)
+COPY extract/requirements.txt /tmp/extract-requirements.txt
+
+RUN pip install --no-cache-dir \
+      -r /tmp/extract-requirements.txt \
+      dbt-postgres==1.8.2

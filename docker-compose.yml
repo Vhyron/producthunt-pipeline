@@ -1,0 +1,122 @@
+# Product Hunt pipeline.
+# All images are multi-arch (work on both amd64 and arm64).
+#
+#   docker compose up -d                       # start everything
+#   docker compose logs -f airflow-scheduler   # watch the scheduler
+#   docker compose logs -f                     # watch logs
+#   docker compose down                        # stop (data persists)
+#   docker compose down -v                     # stop + wipes all data)
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-meta/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    # Pass DB + API creds down to tasks (extract + dbt read these)
+    PRODUCTHUNT_API_TOKEN: ${PRODUCTHUNT_API_TOKEN}
+    DB_HOST: timescaledb
+    DB_PORT: '5432'
+    DB_NAME: producthunt
+    DB_USER: producthunt_user
+    DB_PASSWORD: ${DB_PASSWORD}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./extract:/opt/airflow/extract
+    - ./dbt:/opt/airflow/dbt
+  depends_on:
+    airflow-meta:
+      condition: service_healthy
+
+services:
+  # --- The analytics database (your warehouse) ---
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: producthunt
+      POSTGRES_USER: producthunt_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"          # exposed so you can connect with a DB GUI
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d   # runs 01_init.sql on first boot
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U producthunt_user -d producthunt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Airflow's OWN metadata DB (separate from your data) ---
+  airflow-meta:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-meta-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- One-time init: set up Airflow DB + admin user ---
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin --password admin \
+          --firstname admin --lastname admin \
+          --role Admin --email admin@example.com || true
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"          # Airflow UI -> http://localhost:8080
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # --- Visualization ---
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"          # Grafana -> http://localhost:3000
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  timescale-data:
+  airflow-meta-data:
+  grafana-data:
