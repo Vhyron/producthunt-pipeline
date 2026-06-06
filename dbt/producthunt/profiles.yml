@@ -1,0 +1,12 @@
+producthunt:
+  target: prod
+  outputs:
+    prod:
+      type: postgres
+      host: "{{ env_var('DB_HOST', 'timescaledb') }}"
+      port: "{{ env_var('DB_PORT', '5432') | int }}"
+      dbname: "{{ env_var('DB_NAME', 'producthunt') }}"
+      user: "{{ env_var('DB_USER', 'ph_user') }}"
+      password: "{{ env_var('DB_PASSWORD') }}"
+      schema: marts
+      threads: 4

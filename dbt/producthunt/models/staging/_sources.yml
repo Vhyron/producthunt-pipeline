@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: product_snapshots
+        description: "Raw Product Hunt snapshots, one row per product per capture time."

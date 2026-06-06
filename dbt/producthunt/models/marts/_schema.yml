@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: mart_current_leaderboard
+    description: "Most recent snapshot per product."
+    columns:
+      - name: product_id
+        tests: [unique, not_null]   # one row per product in the leaderboard
+
+  - name: mart_vote_velocity
+    description: "Votes gained per product between snapshots."
+    columns:
+      - name: product_id
+        tests: [not_null]

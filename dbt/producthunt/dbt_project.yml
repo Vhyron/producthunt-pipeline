@@ -1,0 +1,16 @@
+name: 'producthunt'
+version: '1.0.0'
+config-version: 2
+
+profile: 'producthunt'
+
+model-paths: ["models"]
+
+models:
+  producthunt:
+    staging:
+      +materialized: view      # staging = lightweight views
+      +schema: staging
+    marts:
+      +materialized: table     # marts = persisted tables (fast for Grafana)
+      +schema: marts
