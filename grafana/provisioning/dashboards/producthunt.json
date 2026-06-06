@@ -1,0 +1,51 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "panels": [
+    {
+      "type": "table",
+      "title": "Current Leaderboard (Top Products Now)",
+      "datasource": { "type": "postgres", "uid": "TimescaleDB" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT product_name, votes_count, comments_count, topics FROM marts.mart_current_leaderboard ORDER BY votes_count DESC LIMIT 20;"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Total Votes (Tracked Products)",
+      "datasource": { "type": "postgres", "uid": "TimescaleDB" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT SUM(votes_count) AS total_votes FROM marts.mart_current_leaderboard;"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Vote Velocity (votes/hour) Over Time",
+      "datasource": { "type": "postgres", "uid": "TimescaleDB" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT snapshot_at AS time, product_name AS metric, votes_per_hour FROM marts.mart_vote_velocity WHERE $__timeFilter(snapshot_at) ORDER BY snapshot_at;"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["producthunt"],
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "30s",
+  "title": "Product Hunt Live Monitor",
+  "uid": "producthunt-live"
+}
